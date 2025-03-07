@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matterport Navigation</title>
+<style>
+    body { font-family: Arial, sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; flex-direction: column; background-color: #f0f0f0; }
+    iframe { border: 2px solid #333; border-radius: 8px; margin-bottom: 10px; }
+    #controls { margin: 10px; }
+    button { padding: 5px 10px; margin: 5px; border: none; background-color: #007bff; color: #fff; border-radius: 5px; cursor: pointer; }
+    button:hover { background-color: #0056b3; }
+    #cameraFeed { width: 300px; height: 200px; border: 2px solid #333; border-radius: 8px; margin-bottom: 10px; }
+    #arrow { position: absolute; top: 50%; left: 50%; transform-origin: center; font-size: 30px; transition: transform 0.5s; }
+</style>
+</head>
+
+<body>
+
+<h2>Matterport Navigation with Real-time Camera</h2>
+
+<!-- Matterport Embed -->
+<iframe
+    id="showcase"
+    width="800"
+    height="500"
+    src="https://my.matterport.com/show/?m=b1HPPm9qCQh&play=1&qs=1&title=0&sdk=1"
+    allow="vr"
+    frameborder="0">
+</iframe>
+
+<div id="controls">
+    <button onclick="navigateTo('wp1')">Go to Entrance</button>
+    <button onclick="navigateTo('wp2')">Go to Lobby</button>
+    <button onclick="navigateTo('wp3')">Go to Conference Room</button>
+</div>
+
+<!-- Real-time Camera Feed -->
+<video id="cameraFeed" autoplay></video>
+<div id="arrow">➡️</div>
+
+<script src="https://static.matterport.com/showcase-sdk/latest.js"></script>
+<script>
+    const sdkKey = "tda49auq7ymdt4hrhx137uzib";
+    const iframe = document.getElementById("showcase");
+
+    // Initialize Matterport SDK
+    let sdk;
+    iframe.addEventListener("load", () => {
+        window.MP_SDK.connect(iframe, sdkKey).then((connectedSdk) => {
+            sdk = connectedSdk;
+            console.log("Matterport SDK Connected!");
+        }).catch(console.error);
+    });
+
+    // Define waypoints
+    const waypoints = [
+        { id: 'wp1', label: 'Entrance', position: { x: 1.5, y: 0, z: 2.0 } },
+        { id: 'wp2', label: 'Lobby', position: { x: 5.0, y: 0, z: 3.5 } },
+        { id: 'wp3', label: 'Conference Room', position: { x: 8.0, y: 0, z: 5.0 } }
+    ];
+
+    // Navigation function
+    function navigateTo(waypointId) {
+        const waypoint = waypoints.find(wp => wp.id === waypointId);
+        if (waypoint && sdk) {
+            sdk.Camera.moveTo(waypoint.position).then(() => {
+                console.log("Navigated to", waypoint.label);
+            }).catch(console.error);
+        }
+    }
+
+    // Access real-time camera
+    const video = document.getElementById('cameraFeed');
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => video.srcObject = stream)
+        .catch(err => console.error("Camera access denied:", err));
+
+    // Show arrow direction
+    function showDirection(currentPosition, targetPosition) {
+        const deltaX = targetPosition.x - currentPosition.x;
+        const deltaZ = targetPosition.z - currentPosition.z;
+        const angle = Math.atan2(deltaZ, deltaX) * (180 / Math.PI);
+        document.getElementById("arrow").style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
+    }
+
+    // Update arrow direction based on camera position
+    setInterval(() => {
+        if (sdk) {
+            sdk.Camera.pose.subscribe(pose => {
+                const currentPosition = pose.position;
+                const targetPosition = waypoints[0].position;  // Example: first waypoint
+                showDirection(currentPosition, targetPosition);
+            });
+        }
+    }, 1000);
+</script>
+
+</body>
+</html>

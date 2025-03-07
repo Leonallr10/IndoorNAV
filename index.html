@@ -7,18 +7,18 @@
 <title>Matterport Navigation</title>
 <style>
     body { font-family: Arial, sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; flex-direction: column; background-color: #f0f0f0; }
-    iframe { border: 2px solid #333; border-radius: 8px; margin-bottom: 10px; }
+    iframe { border: 2px solid #333; border-radius: 8px; margin-bottom: 10px; width: 90%; max-width: 800px; }
     #controls { margin: 10px; }
     button { padding: 5px 10px; margin: 5px; border: none; background-color: #007bff; color: #fff; border-radius: 5px; cursor: pointer; }
     button:hover { background-color: #0056b3; }
-    #cameraFeed { width: 300px; height: 200px; border: 2px solid #333; border-radius: 8px; margin-bottom: 10px; }
+    #cameraFeed { width: 90%; max-width: 300px; height: auto; border: 2px solid #333; border-radius: 8px; margin-bottom: 10px; }
     #arrow { position: absolute; top: 50%; left: 50%; transform-origin: center; font-size: 30px; transition: transform 0.5s; }
 </style>
 </head>
 
 <body>
 
-<h2>Matterport Navigation with Real-time Camera</h2>
+<h2>Matterport Navigation with Back Camera</h2>
 
 <!-- Matterport Embed -->
 <iframe
@@ -36,8 +36,8 @@
     <button onclick="navigateTo('wp3')">Go to Conference Room</button>
 </div>
 
-<!-- Real-time Camera Feed -->
-<video id="cameraFeed" autoplay></video>
+<!-- Real-time Back Camera Feed -->
+<video id="cameraFeed" autoplay playsinline></video>
 <div id="arrow">➡️</div>
 
 <script src="https://static.matterport.com/showcase-sdk/latest.js"></script>
@@ -71,11 +71,15 @@
         }
     }
 
-    // Access real-time camera
+    // Access back camera
     const video = document.getElementById('cameraFeed');
-    navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => video.srcObject = stream)
-        .catch(err => console.error("Camera access denied:", err));
+    navigator.mediaDevices.getUserMedia({
+        video: {
+            facingMode: { exact: "environment" }  // Use back camera
+        }
+    })
+    .then(stream => video.srcObject = stream)
+    .catch(err => console.error("Camera access denied:", err));
 
     // Show arrow direction
     function showDirection(currentPosition, targetPosition) {

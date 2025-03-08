@@ -4,105 +4,97 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Indoor Navigation</title>
-<!-- Include OpenCV.js -->
-<script async src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady();"></script>
+<title>Matterport Navigation</title>
 <style>
-    body { text-align: center; font-family: Arial, sans-serif; background-color: #f0f0f0; margin: 0; padding: 20px; }
-    video, canvas { border: 2px solid #333; margin-bottom: 10px; border-radius: 8px; }
-    .arrow { font-size: 24px; margin-top: 10px; }
-    .status { font-size: 18px; margin-top: 5px; color: #555; }
+    body { font-family: Arial, sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; flex-direction: column; background-color: #f0f0f0; }
+    iframe { border: 2px solid #333; border-radius: 8px; margin-bottom: 10px; }
+    #controls { margin: 10px; }
+    button { padding: 5px 10px; margin: 5px; border: none; background-color: #007bff; color: #fff; border-radius: 5px; cursor: pointer; }
+    button:hover { background-color: #0056b3; }
+    #cameraFeed { width: 300px; height: 200px; border: 2px solid #333; border-radius: 8px; margin-bottom: 10px; }
+    #arrow { position: absolute; top: 50%; left: 50%; transform-origin: center; font-size: 30px; transition: transform 0.5s; }
 </style>
 </head>
 
 <body>
 
-<h2>Indoor Navigation System</h2>
-<video id="video" width="640" height="480" autoplay></video>
-<canvas id="canvas" width="640" height="480"></canvas>
-<div id="arrow" class="arrow">Detecting...</div>
-<div id="status" class="status">Waiting for camera...</div>
+<h2>Matterport Navigation with Real-time Camera</h2>
 
+<!-- Matterport Embed -->
+<iframe
+    id="showcase"
+    width="800"
+    height="500"
+    src="https://my.matterport.com/show/?m=b1HPPm9qCQh&play=1&qs=1&title=0&sdk=1"
+    allow="vr"
+    frameborder="0">
+</iframe>
+
+<div id="controls">
+    <button onclick="navigateTo('wp1')">Go to Entrance</button>
+    <button onclick="navigateTo('wp2')">Go to Lobby</button>
+    <button onclick="navigateTo('wp3')">Go to Conference Room</button>
+</div>
+
+<!-- Real-time Camera Feed -->
+<video id="cameraFeed" autoplay></video>
+<div id="arrow">➡️</div>
+
+<script src="https://static.matterport.com/showcase-sdk/latest.js"></script>
 <script>
-    const video = document.getElementById("video");
-    const canvas = document.getElementById("canvas");
-    const context = canvas.getContext("2d");
-    const arrowDiv = document.getElementById("arrow");
-    const statusDiv = document.getElementById("status");
+    const sdkKey = "tda49auq7ymdt4hrhx137uzib";
+    const iframe = document.getElementById("showcase");
 
-    // Request back camera access
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-        .then(stream => {
-            video.srcObject = stream;
-            statusDiv.innerText = "Camera access granted";
-        })
-        .catch(error => {
-            console.error("Camera access denied", error);
-            statusDiv.innerText = "Camera access denied";
-        });
+    // Initialize Matterport SDK
+    let sdk;
+    iframe.addEventListener("load", () => {
+        window.MP_SDK.connect(iframe, sdkKey).then((connectedSdk) => {
+            sdk = connectedSdk;
+            console.log("Matterport SDK Connected!");
+        }).catch(console.error);
+    });
 
-    // Key points in Matterport (manually recorded with approx. coordinates)
-    const keyPoints = [
-        { id: 'entrance', label: 'Entrance', x: 100, y: 150 },
-        { id: 'lobby', label: 'Lobby', x: 300, y: 250 },
-        { id: 'conference', label: 'Conference Room', x: 500, y: 350 }
+    // Define waypoints
+    const waypoints = [
+        { id: 'wp1', label: 'Entrance', position: { x: 1.5, y: 0, z: 2.0 } },
+        { id: 'wp2', label: 'Lobby', position: { x: 5.0, y: 0, z: 3.5 } },
+        { id: 'wp3', label: 'Conference Room', position: { x: 8.0, y: 0, z: 5.0 } }
     ];
 
-    // Feature extraction and matching
-    function onOpenCvReady() {
-        statusDiv.innerText = "OpenCV.js is ready!";
-        const cap = new cv.VideoCapture(video);
-        const frame = new cv.Mat(video.height, video.width, cv.CV_8UC4);
-        const gray = new cv.Mat();
-        const orb = new cv.ORB();
-        const bf = new cv.BFMatcher();
-
-        // Create fake descriptors for key points (for demonstration)
-        const keyPointDescriptors = keyPoints.map(point => ({
-            id: point.id,
-            label: point.label,
-            descriptor: new cv.Mat(1, 32, cv.CV_8U)
-        }));
-
-        function processFrame() {
-            cap.read(frame);
-            cv.cvtColor(frame, gray, cv.COLOR_RGBA2GRAY);
-
-            let keypoints = new cv.KeyPointVector();
-            let descriptors = new cv.Mat();
-            orb.detectAndCompute(gray, new cv.Mat(), keypoints, descriptors);
-
-            // Compare with key points using a mockup method
-            let nearest = null;
-            let minDist = Infinity;
-
-            keyPointDescriptors.forEach(point => {
-                if (descriptors.rows > 0) {
-                    let matches = new cv.DMatchVector();
-                    bf.match(descriptors, point.descriptor, matches);
-                    if (matches.size() > 0) {
-                        let dist = matches.get(0).distance;
-                        if (dist < minDist) {
-                            minDist = dist;
-                            nearest = point;
-                        }
-                    }
-                }
-            });
-
-            // Show direction
-            if (nearest) {
-                arrowDiv.innerText = `→ Go to: ${nearest.label}`;
-            } else {
-                arrowDiv.innerText = "No matching point detected";
-            }
-
-            cv.imshow("canvas", frame);
-            requestAnimationFrame(processFrame);
+    // Navigation function
+    function navigateTo(waypointId) {
+        const waypoint = waypoints.find(wp => wp.id === waypointId);
+        if (waypoint && sdk) {
+            sdk.Camera.moveTo(waypoint.position).then(() => {
+                console.log("Navigated to", waypoint.label);
+            }).catch(console.error);
         }
-
-        requestAnimationFrame(processFrame);
     }
+
+    // Access real-time camera
+    const video = document.getElementById('cameraFeed');
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => video.srcObject = stream)
+        .catch(err => console.error("Camera access denied:", err));
+
+    // Show arrow direction
+    function showDirection(currentPosition, targetPosition) {
+        const deltaX = targetPosition.x - currentPosition.x;
+        const deltaZ = targetPosition.z - currentPosition.z;
+        const angle = Math.atan2(deltaZ, deltaX) * (180 / Math.PI);
+        document.getElementById("arrow").style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
+    }
+
+    // Update arrow direction based on camera position
+    setInterval(() => {
+        if (sdk) {
+            sdk.Camera.pose.subscribe(pose => {
+                const currentPosition = pose.position;
+                const targetPosition = waypoints[0].position;  // Example: first waypoint
+                showDirection(currentPosition, targetPosition);
+            });
+        }
+    }, 1000);
 </script>
 
 </body>
